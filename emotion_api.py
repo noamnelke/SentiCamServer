@@ -1,5 +1,12 @@
+import base64
+
 import requests
 import settings
+
+
+class ApiError(Exception):
+    def __init__(self, response):
+        self.response = response
 
 
 class NoFaceRecognizedError(Exception):
@@ -11,20 +18,25 @@ class MultipleFacesRecognizedError(Exception):
 
 
 def recognize(image_data):
-    response = requests.post(url=settings.API_HOST + '/emotion/v1.0/recognize',
+    response = requests.post(url=settings.API_HOST + '/recognize',
                              data=image_data,
                              headers=_get_headers())
+    if not response.ok:
+        raise ApiError(response)
+
     face_data = _extract_face_data(response)
     top_emotion = _get_top_emotion(face_data['scores'])
 
     return {"feeling": top_emotion,
             "faceRectangle": face_data['faceRectangle'],
-            "imageData": image_data}
+            "imageData": base64.encodebytes(image_data).decode('ascii')}
+    # I base64-encoded the binary image data so that it can be serialized as part of the JSON response,
+    # this can be decoded on the client if needed
 
 
 def _get_headers():
     return {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/octet-stream',
         'Ocp-Apim-Subscription-Key': settings.API_KEY,
     }
 
